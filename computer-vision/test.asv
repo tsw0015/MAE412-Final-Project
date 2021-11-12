@@ -1,0 +1,36 @@
+clear, clc, close all
+
+filter_threshold = 0.43;   
+
+cam = webcam('/dev/video3');
+while(true)
+    %take an image
+    img = snapshot(cam);
+    
+    %split into individual Red Green and Blue Matricies
+    [R,G,B] = imsplit(img);
+    R = double(R);
+    G = double(G);
+    B = double(B);
+   
+    %create mask for filtering white
+    white_filter = uint16(R)+uint16(G)+uint16(B);
+    white_filter = double(white_filter);
+   
+    %Find percentages of what color each pizel is made up of
+    R_filter = R./white_filter;
+    B_filter = B./white_filter;
+    G_filter = G./white_filter;
+
+    %Use the thresholding to mask the image
+    R_filter = R_filter > filter_threshold;
+    G_filter = G_filter > filter_threshold;
+    B_filter = B_filter > filter_threshold;
+
+    %create new image
+    new_image(:,:,1) = uint16(R).*uint16(R_filter);
+    new_image(:,:,2) = uint16(G).*uint16(G_filter);
+    new_image(:,:,3) = uint16(B).*uint16(B_filter);
+    %
+    imshow(uint8(new_image))
+end
