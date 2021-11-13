@@ -1,6 +1,6 @@
 clear, clc, close all
 
-filter_threshold = 0.5;
+filter_threshold = 0.43;
 
 %assing camera to the port the webcam is (use webcamlist command in command
 %window to list out the difference webcam devices connected to your device
@@ -40,32 +40,35 @@ while(true)
     new_image = uint8(new_image);
 
     %line detection
-    BW = edge(new_image(:,:,1),'canny');
-    [H,theta,rho] = hough(BW);
-    P = houghpeaks(H,5,'threshold',ceil(0.3*max(H(:))));
-    lines = houghlines(BW,theta,rho,P,'FillGap',5,'MinLength',7);
-
-    imshow(new_image(:,:,1)), hold on
-    max_len = 0;
-    for k = 1:length(lines)
-        xy = [lines(k).point1; lines(k).point2];
-        plot(xy(:,1),xy(:,2),'LineWidth',2,'Color','green');
-
-        % Plot beginnings and ends of lines
-        plot(xy(1,1),xy(1,2),'x','LineWidth',2,'Color','yellow');
-        plot(xy(2,1),xy(2,2),'x','LineWidth',2,'Color','red');
-
-        % Determine the endpoints of the longest line segment
-        len = norm(lines(k).point1 - lines(k).point2);
-        if ( len > max_len)
-            max_len = len;
-            xy_long = xy;
-        end
-    end
-    % highlight the longest line segment
-    plot(xy_long(:,1),xy_long(:,2),'LineWidth',2,'Color','red');
+%     BW = edge(new_image(:,:,1),'canny');
+%     [H,theta,rho] = hough(BW);
+%     P = houghpeaks(H,5,'threshold',ceil(0.3*max(H(:))));
+%     lines = houghlines(BW,theta,rho,P,'FillGap',5,'MinLength',7);
+% 
+%     imshow(new_image(:,:,1)), hold on
+%     max_len = 0;
+%     for k = 1:length(lines)
+%         xy = [lines(k).point1; lines(k).point2];
+%         plot(xy(:,1),xy(:,2),'LineWidth',2,'Color','green');
+% 
+%         % Plot beginnings and ends of lines
+%         plot(xy(1,1),xy(1,2),'x','LineWidth',2,'Color','yellow');
+%         plot(xy(2,1),xy(2,2),'x','LineWidth',2,'Color','red');
+% 
+%         % Determine the endpoints of the longest line segment
+%         len = norm(lines(k).point1 - lines(k).point2);
+%         if ( len > max_len)
+%             max_len = len;
+%             xy_long = xy;
+%         end
+%     end
+%     % highlight the longest line segment
+%     plot(xy_long(:,1),xy_long(:,2),'LineWidth',2,'Color','red');
 
     %display the new image
-    %imshow(BW)
+    imshow(new_image), hold on
+    detection = detectLines(new_image);
+    displayResults(detection)
+    
     
 end
