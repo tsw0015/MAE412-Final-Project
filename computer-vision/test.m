@@ -5,13 +5,14 @@ filter_threshold = 0.43;
 %assing camera to the port the webcam is (use webcamlist command in command
 %window to list out the difference webcam devices connected to your device
 %and assign accordingly
-cam = webcam('/dev/video2');
+cam = webcam('/dev/video0');
 
 %continually update the picture using while loop (ctrl + C in command
 %window to kill the process)
 while(true)
     %take an image
     img = snapshot(cam);
+%     img = imread("rtwister_shop_thumb.png");
 
     %split into individual Red Green and Blue Matricies
     [R,G,B] = imsplit(img);
@@ -39,36 +40,9 @@ while(true)
     new_image(:,:,3) = uint16(B).*uint16(B_filter);
     new_image = uint8(new_image);
 
-    %line detection
-%     BW = edge(new_image(:,:,1),'canny');
-%     [H,theta,rho] = hough(BW);
-%     P = houghpeaks(H,5,'threshold',ceil(0.3*max(H(:))));
-%     lines = houghlines(BW,theta,rho,P,'FillGap',5,'MinLength',7);
-% 
-%     imshow(new_image(:,:,1)), hold on
-%     max_len = 0;
-%     for k = 1:length(lines)
-%         xy = [lines(k).point1; lines(k).point2];
-%         plot(xy(:,1),xy(:,2),'LineWidth',2,'Color','green');
-% 
-%         % Plot beginnings and ends of lines
-%         plot(xy(1,1),xy(1,2),'x','LineWidth',2,'Color','yellow');
-%         plot(xy(2,1),xy(2,2),'x','LineWidth',2,'Color','red');
-% 
-%         % Determine the endpoints of the longest line segment
-%         len = norm(lines(k).point1 - lines(k).point2);
-%         if ( len > max_len)
-%             max_len = len;
-%             xy_long = xy;
-%         end
-%     end
-%     % highlight the longest line segment
-%     plot(xy_long(:,1),xy_long(:,2),'LineWidth',2,'Color','red');
-
-    %display the new image
-    imshow(new_image), hold on
-    detection = detectLines(new_image);
-    displayResults(detection)
-    
+    %circle detection
+    imshow(img)
+    [centers,radii] = imfindcircles(new_image,[8 100],'Sensitivity',0.92);
+    viscircles(centers,radii);    
     
 end
