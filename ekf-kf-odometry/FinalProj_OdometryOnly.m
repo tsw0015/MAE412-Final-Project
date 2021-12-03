@@ -72,10 +72,7 @@ function Function_Output= MAE_CPE_412_Robot_Control(serPort)
         SetDriveWheelsCreate(serPort,0,0)
     
     % Flags and variables to be used in the custom drive code
-        Drive_Straight=1;      % 1 - start, 0 finished
-        Turn_In_Place=0;        % 1 - start, 0 finished
-        Last_Dist=0;            % The TotalDistance at the last stop
-        Last_Angle=0;           % The TotalAngle at the last stop
+        edge_L=3;
         Yaw_Reference = 0;   % Referece yaw angle to be achieved by feedback control 
         Proportional_Gain=0.1;
         Int_Gain=0;
@@ -83,11 +80,12 @@ function Function_Output= MAE_CPE_412_Robot_Control(serPort)
         Sum_error=0;
         WO_pos=[0;0;0];
         loopCnt=0;
+        li= 0;
         ygBias=0;
         
     % Enter the main loop
-    i=0;
-    while loopCnt<3
+    i=1;
+    while loopCnt<4
         tic
         SD.Index(i)=i;
         % Read the time      
@@ -172,25 +170,26 @@ function Function_Output= MAE_CPE_412_Robot_Control(serPort)
         Prop_term= Proportional_Gain*Yaw_error;
         Int_term= Int_Gain*Sum_error;
         Deriv_term= Ts*Deriv_Gain*SD.R(i);
-        if(i<=20)
+        if(li<=20 && loopCnt>0 && rem(loopCnt,2)==0)
             leftWSpd= 0;
             rightWSpd= 0;
-            if(i==20)
-                ygBias= mean(SD.R)
+            if(li==20)
+                ygBias= mean(SD.R(i-li:i));
             end
-        elseif(WO_pos(1)>=3 && WO_pos(3)<(pi/2)) % && (-0.1<WO_pos(2) && WO_pos(2)<0.1)
+            li= li+1;
+        elseif(WO_pos(1)>=edge_L && WO_pos(3)<(pi/2))
             leftWSpd= -0.025*Create_Full_Speed;
             rightWSpd= 0.025*Create_Full_Speed;
             Yaw_Reference= pi/2;
-        elseif(WO_pos(2)>=3 && WO_pos(3)<pi) % (2.9<WO_pos(1) && WO_pos(1)<3.1) &&
+        elseif(WO_pos(2)>=edge_L && WO_pos(3)<pi)
             leftWSpd= -0.025*Create_Full_Speed;
             rightWSpd= 0.025*Create_Full_Speed;
             Yaw_Reference= pi;
-        elseif(WO_pos(1)<=0 && WO_pos(3)>=pi && WO_pos(3)<(3*pi/2)) % && (2.9<WO_pos(2) && WO_pos(2)<3.1)
+        elseif(WO_pos(1)<=0 && WO_pos(3)>=pi && WO_pos(3)<(3*pi/2))
             leftWSpd= -0.025*Create_Full_Speed;
             rightWSpd= 0.025*Create_Full_Speed;
             Yaw_Reference= 3*pi/2;
-        elseif(WO_pos(2)<=0 && WO_pos(3)>=(3*pi/2) && WO_pos(3)<(2*pi)) % (-0.1<WO_pos(1) && WO_pos(1)<0.1) && 
+        elseif(WO_pos(2)<=0 && WO_pos(3)>=(3*pi/2) && WO_pos(3)<(2*pi))
             leftWSpd= -0.025*Create_Full_Speed;
             rightWSpd= 0.025*Create_Full_Speed;
             Yaw_Reference= 2*pi;
@@ -199,13 +198,14 @@ function Function_Output= MAE_CPE_412_Robot_Control(serPort)
             rightWSpd= (0.25+Deriv_term+Prop_term+Int_term)*Create_Full_Speed;
             if(WO_pos(3)<=2*pi+0.1 && WO_pos(3)>=2*pi-0.1)
                 WO_pos(3)=WO_pos(3)-2*pi;
-                loopCnt= loopCnt+1
+                loopCnt= loopCnt+1;
+                li=0;
                 Yaw_Reference= 0;
             end
         end
         SetDriveWheelsCreate(serPort, rightWSpd, leftWSpd);
-        Vw=[leftWSpd;rightWSpd;SD.R(i)];
-        WO_pos=WO_pos+B*Vw
+        Vw=[leftWSpd;rightWSpd;SD.R(i)-ygBias];
+        WO_pos=WO_pos+B*Vw;
         
         %% End of the Custom Control Code
         
