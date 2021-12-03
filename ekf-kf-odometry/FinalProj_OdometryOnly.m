@@ -3,14 +3,14 @@ function Function_Output= MAE_CPE_412_Robot_Control(serPort)
 % Gu, Nov 2020
 %     clc
     % Set constants for this program
-    Tend=60*20;                        % Simultation time in seconds;
+    Tend=60*10;                        % Simultation time in seconds;
 
     Ts_Desired=0.5;                 % Desired sampling time
     Ts=0.5;                         % sampling time is 0.5 second. It can be reduced 
                                     % slightly to offset other overhead in the loop
     Total_Steps=Tend/Ts_Desired;    % The total number of time steps;
 
-    Create_Full_Speed=0.5;          % The highest speed the robot can travel. (Max is 0.5m/s)
+    Create_Full_Speed=1;          % The highest speed the robot can travel. (Max is 0.5m/s)
     gravity = 9.81;                 % Earth's gravity
 
     % Rate Gyro Biases (unit, rad/s)
@@ -77,17 +77,19 @@ function Function_Output= MAE_CPE_412_Robot_Control(serPort)
         Last_Dist=0;            % The TotalDistance at the last stop
         Last_Angle=0;           % The TotalAngle at the last stop
         Yaw_Reference = 0;   % Referece yaw angle to be achieved by feedback control 
-        Proportional_Gain=0.5;
+        Proportional_Gain=0.1;
+        Int_Gain=0;
         Deriv_Gain=0;
-        Int_Gain=0.005;
         Sum_error=0;
         WO_pos=[0;0;0];
+        loopCnt=0;
+        ygBias=0;
         
     % Enter the main loop
-    for i=1:Total_Steps
+    i=0;
+    while loopCnt<3
         tic
         SD.Index(i)=i;
-        i
         % Read the time      
         Time=clock;                     % Mark the current time;
         SD.Time(i)=Time(6);             % Store the seconds;
@@ -161,63 +163,6 @@ function Function_Output= MAE_CPE_412_Robot_Control(serPort)
         
         %% Put your custom robot control code here or run one of the examples below
         %----------------------------------------------------------
-        % To run any of the example, just uncoment it and comment out other examples or custom codes. 
-        % Use the following function for the robot wheel control:
-        % SetDriveWheelsCreate(serPort, rightWheelVel, leftWheelVel);
-        
-        % --------------------------------
-        % Example #1: Drive and turn
-        % Drive straight
-%         if Drive_Straight==1 & SD.TotalDist(i)<(Last_Dist+1)
-%             SetDriveWheelsCreate(serPort, 0.2*Create_Full_Speed, 0.2*Create_Full_Speed);
-%         elseif Turn_In_Place==0
-%             SetDriveWheelsCreate(serPort, 0, 0);
-%             Drive_Stratight=0;
-%             Turn_In_Place=1;
-%             Last_Angle=SD.TotalAngle(i);
-%         end
-%         % Turn in place
-%         if Turn_In_Place==1 && SD.TotalAngle(i)<(Last_Angle+deg2rad(90))
-%             SetDriveWheelsCreate(serPort, 0.2*Create_Full_Speed, -0.2*Create_Full_Speed);
-%         elseif Drive_Straight==0
-%             SetDriveWheelsCreate(serPort, 0, 0);
-%             Drive_Straight=1;
-%             Turn_In_Place=0;
-%             Last_Dist=SD.TotalDist(i);
-%         end     
-
-        % --------------------------------
-        % Example #2: Simple Collision Avoidance (Set Tend=60s)
-%         if SD.RF_F(i)<0.5
-%             SetDriveWheelsCreate(serPort, -Create_Full_Speed*.4, -Create_Full_Speed*.6);
-%         elseif SD.RF_B(i)<0.3
-%             SetDriveWheelsCreate(serPort, Create_Full_Speed*.6, Create_Full_Speed*.4);
-%         elseif SD.RF_L(i)<0.5
-%             SetDriveWheelsCreate(serPort, -Create_Full_Speed*.5, Create_Full_Speed*0.5);
-%         elseif SD.RF_R(i)<0.5
-%             SetDriveWheelsCreate(serPort, Create_Full_Speed*0.5, -Create_Full_Speed*.5);
-%         else
-%             SetDriveWheelsCreate(serPort, Create_Full_Speed, Create_Full_Speed);
-%         end
-%         [angle dist color]= CameraSensorCreate(serPort)         % report a beacon if it sees one
-        
-        % --------------------------------
-        % Example #3: Feedback control
-%         Yaw_error = Yaw_Reference - SD.Yaw(i);      % calcuate the error.
-%         Sum_error= Sum_error + Yaw_error;
-%         Prop_term= Proportional_Gain*Yaw_error;
-%         Deriv_term= Ts*Deriv_Gain*SD.R(i);
-%         Int_term= Int_Gain*Sum_error;
-        % Proportional
-%         SetDriveWheelsCreate(serPort, (0.2+Prop_term)*Create_Full_Speed, (0.2-Prop_term*Yaw_error)*Create_Full_Speed);
-        % Proportional Derivative
-%         SetDriveWheelsCreate(serPort, (0.2+Prop_term+Deriv_term)*Create_Full_Speed, (0.2-Prop_term-Deriv_term)*Create_Full_Speed);
-        % Proportional Integral
-%         SetDriveWheelsCreate(serPort, (0.2+Prop_term+Int_term)*Create_Full_Speed, (0.2-Prop_term-Int_term)*Create_Full_Speed);
-        % PID
-%         SetDriveWheelsCreate(serPort, (0.2+Prop_term+Deriv_term+Int_term)*Create_Full_Speed, (0.2-Prop_term-Deriv_term-Int_term)*Create_Full_Speed);
-        
-        %----------------------------------------------------------
 %         %% Beginnings of Decision Making Algorithm
         B=[cos(WO_pos(3))/2 cos(WO_pos(3))/2 0;
            sin(WO_pos(3))/2 sin(WO_pos(3))/2 0;
@@ -225,37 +170,42 @@ function Function_Output= MAE_CPE_412_Robot_Control(serPort)
         Yaw_error = Yaw_Reference - WO_pos(3);      
         Sum_error= Sum_error + Yaw_error;
         Prop_term= Proportional_Gain*Yaw_error;
-        Deriv_term= Ts*Deriv_Gain*SD.R(i);
         Int_term= Int_Gain*Sum_error;
-        if(WO_pos(1)>=3 && WO_pos(3)<(pi/2)) % && (-0.1<WO_pos(2) && WO_pos(2)<0.1)
-            leftWSpd= -0.1*Create_Full_Speed;
-            rightWSpd= 0.1*Create_Full_Speed;
+        Deriv_term= Ts*Deriv_Gain*SD.R(i);
+        if(i<=20)
+            leftWSpd= 0;
+            rightWSpd= 0;
+            if(i==20)
+                ygBias= mean(SD.R)
+            end
+        elseif(WO_pos(1)>=3 && WO_pos(3)<(pi/2)) % && (-0.1<WO_pos(2) && WO_pos(2)<0.1)
+            leftWSpd= -0.025*Create_Full_Speed;
+            rightWSpd= 0.025*Create_Full_Speed;
             Yaw_Reference= pi/2;
         elseif(WO_pos(2)>=3 && WO_pos(3)<pi) % (2.9<WO_pos(1) && WO_pos(1)<3.1) &&
-            leftWSpd= -0.1*Create_Full_Speed;
-            rightWSpd= 0.1*Create_Full_Speed;
+            leftWSpd= -0.025*Create_Full_Speed;
+            rightWSpd= 0.025*Create_Full_Speed;
             Yaw_Reference= pi;
         elseif(WO_pos(1)<=0 && WO_pos(3)>=pi && WO_pos(3)<(3*pi/2)) % && (2.9<WO_pos(2) && WO_pos(2)<3.1)
-            leftWSpd= -0.1*Create_Full_Speed;
-            rightWSpd= 0.1*Create_Full_Speed;
+            leftWSpd= -0.025*Create_Full_Speed;
+            rightWSpd= 0.025*Create_Full_Speed;
             Yaw_Reference= 3*pi/2;
         elseif(WO_pos(2)<=0 && WO_pos(3)>=(3*pi/2) && WO_pos(3)<(2*pi)) % (-0.1<WO_pos(1) && WO_pos(1)<0.1) && 
-            leftWSpd= -0.1*Create_Full_Speed;
-            rightWSpd= 0.1*Create_Full_Speed;
+            leftWSpd= -0.025*Create_Full_Speed;
+            rightWSpd= 0.025*Create_Full_Speed;
             Yaw_Reference= 2*pi;
         else
-            leftWSpd= (0.2-Prop_term-Deriv_term-Int_term)*Create_Full_Speed;
-            rightWSpd= (0.2+Prop_term+Deriv_term+Int_term)*Create_Full_Speed;
+            leftWSpd= (0.25-Deriv_term-Prop_term-Int_term)*Create_Full_Speed;
+            rightWSpd= (0.25+Deriv_term+Prop_term+Int_term)*Create_Full_Speed;
             if(WO_pos(3)<=2*pi+0.1 && WO_pos(3)>=2*pi-0.1)
                 WO_pos(3)=WO_pos(3)-2*pi;
+                loopCnt= loopCnt+1
                 Yaw_Reference= 0;
             end
         end
         SetDriveWheelsCreate(serPort, rightWSpd, leftWSpd);
-        
         Vw=[leftWSpd;rightWSpd;SD.R(i)];
-        dPos=B*Vw;
-        WO_pos=WO_pos+dPos
+        WO_pos=WO_pos+B*Vw
         
         %% End of the Custom Control Code
         
@@ -264,6 +214,7 @@ function Function_Output= MAE_CPE_412_Robot_Control(serPort)
         if SD.Delay(i)>0
             pause(SD.Delay(i));     % Kill the remaining time
         end
+        i=i+1;
     end
     
     Total_Elapse_Time = SD.Time(Total_Steps)-SD.Time(1)  % Calcualte the total elapse time, not counting the minutes
