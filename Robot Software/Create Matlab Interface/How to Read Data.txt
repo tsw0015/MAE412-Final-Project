@@ -1,0 +1,10 @@
+addpath('D:\SMART Software\Create Matlab Interface');
+savepath
+S_Create=RoombaInit(1);
+
+flushinput(S_Create);       % Flush the iRobot Create serial port
+
+fwrite(S_Create, [142 0]);  % Request all sensor data from Create
+pause(0.01);
+    [BumpRight,BumpLeft,BumpFront,Wall,VirtWall,CliffLeft,CliffRight,CliffFrontLeft,CliffFrontRight,LeftCurrOver,RightCurrOver,DirtL,DirtR,ButtonPlay,ButtonAv,Dist,Angle,CreateVolts,CreateCurrent,Temp,Charge,Capacity,pCharge]=Read_Create_2(S_Create);
+
