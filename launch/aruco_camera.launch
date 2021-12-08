@@ -38,4 +38,6 @@
     <remap from="/camera_info" to="$(arg camera)/camera_info"/>
   </node>
 
+  <node name="fiducial_message_convert" pkg="MAE412_final_pkg" type="convert.py"/>
+
 </launch>
