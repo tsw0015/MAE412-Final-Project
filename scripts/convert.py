@@ -20,10 +20,10 @@ def convert(data:FiducialTransform):
 
 
 def main():
-	global RATE, RATE_HZ, SUB, PUB, PUB2
+	global RATE, SUB, PUB, PUB2
 
 	rospy.init_node('fiducial_message_convert')
-	RATE = rospy.Rate(RATE_HZ)
+	RATE = rospy.Rate(10)
 
 	PUB = rospy.Publisher('marker/pose', Transform, queue_size=1)
 	PUB2 = rospy.Publisher('marker/ID', Int32, queue_size=1)
