@@ -1,0 +1,26 @@
+Set static ip:
+
+connect to the network (id=smart_robot passwd=smart_robot)
+
+enter linksyssmartwifi.com (password= admin)
+
+connectivity -> local_network -> DHCP Reservations -> Add to DHCP reservation
+ -> SAVE
+
+then with vncserver installed:
+gedit ~/.vnc/xtartup and paste the following code:
+
+#!/bin/sh
+def
+export XKL_XMODMAP_DISABLE=1
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+
+xrdb $HOME/.Xresources
+xsetroot -solid grey
+
+
+# Fix to make GNOME work
+/etc/X11/Xsession
+startxfce4 -geometry 1920x1080 &
+
