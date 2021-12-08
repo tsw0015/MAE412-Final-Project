@@ -3,14 +3,14 @@ function Function_Output= MAE_CPE_412_Robot_Control(serPort)
 % Gu, Nov 2020
 %     clc
     % Set constants for this program
-    Tend=60*10;                        % Simultation time in seconds;
+    Tend=20;                        % Simultation time in seconds;
 
     Ts_Desired=0.5;                 % Desired sampling time
     Ts=0.5;                         % sampling time is 0.5 second. It can be reduced 
                                     % slightly to offset other overhead in the loop
     Total_Steps=Tend/Ts_Desired;    % The total number of time steps;
 
-    Create_Full_Speed=1;          % The highest speed the robot can travel. (Max is 0.5m/s)
+    Create_Full_Speed=0.5;          % The highest speed the robot can travel. (Max is 0.5m/s)
     gravity = 9.81;                 % Earth's gravity
 
     % Rate Gyro Biases (unit, rad/s)
@@ -76,18 +76,30 @@ function Function_Output= MAE_CPE_412_Robot_Control(serPort)
         Turn_In_Place=0;        % 1 - start, 0 finished
         Last_Dist=0;            % The TotalDistance at the last stop
         Last_Angle=0;           % The TotalAngle at the last stop
+        edge_L=3;
         Yaw_Reference = 0;   % Referece yaw angle to be achieved by feedback control 
-        Proportional_Gain=0.1;
+        Proportional_Gain=0.5;
         Int_Gain=0;
-        Deriv_Gain=0;
         Sum_error=0;
-        WO_pos=[0;0;0];
+        x_P=[0;0;0];
         loopCnt=0;
+        li= 0;
         ygBias=0;
+        WO_pos_E=zeros(4,Total_Steps);
+        A= [1+Ts 0 0;
+            0 1+Ts 0;
+            0 0 1 Ts];
+        C= [1 1 1];
+        Q= [0.01 0 0;
+            0 0.01 0;
+            0 0 0.01]*Ts^2;         % Process noise covariance
+        R= Gyro_Sigma^2;        % Measurement noise variance
+        P_P=eye(4);
+        I=eye(4);
         
     % Enter the main loop
-    i=0;
-    while loopCnt<3
+    i=1;
+    while loopCnt<4
         tic
         SD.Index(i)=i;
         % Read the time      
@@ -167,45 +179,51 @@ function Function_Output= MAE_CPE_412_Robot_Control(serPort)
         B=[cos(WO_pos(3))/2 cos(WO_pos(3))/2 0;
            sin(WO_pos(3))/2 sin(WO_pos(3))/2 0;
            0 0 1]*Ts;
-        Yaw_error = Yaw_Reference - WO_pos(3);      
+        Yaw_error = Yaw_Reference - WO_pos_E(3);      
         Sum_error= Sum_error + Yaw_error;
         Prop_term= Proportional_Gain*Yaw_error;
         Int_term= Int_Gain*Sum_error;
-        Deriv_term= Ts*Deriv_Gain*SD.R(i);
-        if(i<=20)
+        if(li<=20 && loopCnt>0 && rem(loopCnt,2)==0)
             leftWSpd= 0;
             rightWSpd= 0;
-            if(i==20)
-                ygBias= mean(SD.R)
+            if(li==20)
+                ygBias= mean(SD.R(i-li:i));
             end
-        elseif(WO_pos(1)>=3 && WO_pos(3)<(pi/2)) % && (-0.1<WO_pos(2) && WO_pos(2)<0.1)
+            li= li+1;
+        elseif(x_P(1)>=edge_L && x_P(3)<(pi/2))
             leftWSpd= -0.025*Create_Full_Speed;
             rightWSpd= 0.025*Create_Full_Speed;
             Yaw_Reference= pi/2;
-        elseif(WO_pos(2)>=3 && WO_pos(3)<pi) % (2.9<WO_pos(1) && WO_pos(1)<3.1) &&
+        elseif(x_P(2)>=edge_L && x_P(3)<pi)
             leftWSpd= -0.025*Create_Full_Speed;
             rightWSpd= 0.025*Create_Full_Speed;
             Yaw_Reference= pi;
-        elseif(WO_pos(1)<=0 && WO_pos(3)>=pi && WO_pos(3)<(3*pi/2)) % && (2.9<WO_pos(2) && WO_pos(2)<3.1)
+        elseif(x_P(1)<=0 && x_P(3)>=pi && x_P(3)<(3*pi/2))
             leftWSpd= -0.025*Create_Full_Speed;
             rightWSpd= 0.025*Create_Full_Speed;
             Yaw_Reference= 3*pi/2;
-        elseif(WO_pos(2)<=0 && WO_pos(3)>=(3*pi/2) && WO_pos(3)<(2*pi)) % (-0.1<WO_pos(1) && WO_pos(1)<0.1) && 
+        elseif(x_P(2)<=0 && x_P(3)>=(3*pi/2) && x_P(3)<(2*pi))
             leftWSpd= -0.025*Create_Full_Speed;
             rightWSpd= 0.025*Create_Full_Speed;
             Yaw_Reference= 2*pi;
         else
             leftWSpd= (0.25-Deriv_term-Prop_term-Int_term)*Create_Full_Speed;
             rightWSpd= (0.25+Deriv_term+Prop_term+Int_term)*Create_Full_Speed;
-            if(WO_pos(3)<=2*pi+0.1 && WO_pos(3)>=2*pi-0.1)
-                WO_pos(3)=WO_pos(3)-2*pi;
-                loopCnt= loopCnt+1
+            if(x_P(3)<=2*pi+0.1 && x_P(3)>=2*pi-0.1)
+                x_P(3)=x_P(3)-2*pi;
+                loopCnt= loopCnt+1;
+                li=0;
                 Yaw_Reference= 0;
             end
         end
         SetDriveWheelsCreate(serPort, rightWSpd, leftWSpd);
-        Vw=[leftWSpd;rightWSpd;SD.R(i)];
-        WO_pos=WO_pos+B*Vw
+        vb= [leftWSpd;rightWSpd;SD.R(i)-ygBias];
+        x_A=A*x_P+B*vb;
+        P_A=A*P_P*A'+Q;     % calcuate the a priori error covariance
+        K_k=(C*P_A*C'+R)\(P_A*C');
+        x_P=x_A+K_k*(pos_update-C*x_A);     % calcuate the posterior states
+        P_P=(I-K_k*C)*P_A;      % calcuate the posterior error covariance
+        WO_pos_E(:,i)= x_P;
         
         %% End of the Custom Control Code
         
